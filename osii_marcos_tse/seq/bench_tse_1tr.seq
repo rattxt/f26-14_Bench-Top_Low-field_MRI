@@ -1,0 +1,200 @@
+# Pulseq sequence file
+# Written by osii_marcos_tse/tools/pulseq_io.py (marga_pulseq compatible)
+# Converted from sequence.seq
+# TRs 0..0 of 440, lead-in 1000 us, tx_gate warm-up 100 us
+# All RF/gradient/ADC events keep their original absolute timing (shifted by the lead-in).
+
+[VERSION]
+major 1
+minor 4
+revision 2
+
+[DEFINITIONS]
+AdcRasterTime 1e-06
+BlockDurationRaster 1e-06
+FOV 0.2 0.2 0.2
+GradientRasterTime 1e-06
+Name tse_3d_t2_mapping_marcos
+RadiofrequencyRasterTime 1e-06
+TE 0.013
+TR 0.5
+TotalDuration 0.501
+channel_order x y z
+echo_train_length 14
+encoding_dim 44 44 10
+ro_bandwidth 20000
+ro_oversampling 1
+tx_warmup 100
+marcos_lead_in_us 1000
+adc_oversampling 2
+source_first_tr 0
+source_n_tr 1
+
+# Format of blocks:
+# NUM DUR RF  GX  GY  GZ  ADC  EXT
+[BLOCKS]
+1 920 0 0 0 0 0 0
+2 330 1 0 0 0 0 0
+3 2000 0 1 0 2 0 0
+4 4170 0 0 0 0 0 0
+5 330 2 0 0 0 0 0
+6 2000 0 0 0 2 0 0
+7 2176 0 0 0 0 0 0
+8 1000 0 0 3 0 0 0
+9 2388 0 4 0 0 1 0
+10 1000 0 0 5 0 0 0
+11 2000 0 0 0 2 0 0
+12 2106 0 0 0 0 0 0
+13 330 2 0 0 0 0 0
+14 2000 0 0 0 2 0 0
+15 2176 0 0 0 0 0 0
+16 1000 0 0 3 0 0 0
+17 2388 0 4 0 0 1 0
+18 1000 0 0 5 0 0 0
+19 2000 0 0 0 2 0 0
+20 2106 0 0 0 0 0 0
+21 330 2 0 0 0 0 0
+22 2000 0 0 0 2 0 0
+23 2176 0 0 0 0 0 0
+24 1000 0 0 3 0 0 0
+25 2388 0 4 0 0 1 0
+26 1000 0 0 5 0 0 0
+27 2000 0 0 0 2 0 0
+28 2106 0 0 0 0 0 0
+29 330 2 0 0 0 0 0
+30 2000 0 0 0 2 0 0
+31 2176 0 0 0 0 0 0
+32 1000 0 0 3 0 0 0
+33 2388 0 4 0 0 1 0
+34 1000 0 0 5 0 0 0
+35 2000 0 0 0 2 0 0
+36 2106 0 0 0 0 0 0
+37 330 2 0 0 0 0 0
+38 2000 0 0 0 2 0 0
+39 2176 0 0 0 0 0 0
+40 1000 0 0 3 0 0 0
+41 2388 0 4 0 0 1 0
+42 1000 0 0 5 0 0 0
+43 2000 0 0 0 2 0 0
+44 2106 0 0 0 0 0 0
+45 330 2 0 0 0 0 0
+46 2000 0 0 0 2 0 0
+47 2176 0 0 0 0 0 0
+48 1000 0 0 3 0 0 0
+49 2388 0 4 0 0 1 0
+50 1000 0 0 5 0 0 0
+51 2000 0 0 0 2 0 0
+52 2106 0 0 0 0 0 0
+53 330 2 0 0 0 0 0
+54 2000 0 0 0 2 0 0
+55 2176 0 0 0 0 0 0
+56 1000 0 0 3 0 0 0
+57 2388 0 4 0 0 1 0
+58 1000 0 0 5 0 0 0
+59 2000 0 0 0 2 0 0
+60 2106 0 0 0 0 0 0
+61 330 2 0 0 0 0 0
+62 2000 0 0 0 2 0 0
+63 2176 0 0 0 0 0 0
+64 1000 0 0 3 0 0 0
+65 2388 0 4 0 0 1 0
+66 1000 0 0 5 0 0 0
+67 2000 0 0 0 2 0 0
+68 2106 0 0 0 0 0 0
+69 330 2 0 0 0 0 0
+70 2000 0 0 0 2 0 0
+71 2176 0 0 0 0 0 0
+72 1000 0 0 3 0 0 0
+73 2388 0 4 0 0 1 0
+74 1000 0 0 5 0 0 0
+75 2000 0 0 0 2 0 0
+76 2106 0 0 0 0 0 0
+77 330 2 0 0 0 0 0
+78 2000 0 0 0 2 0 0
+79 2176 0 0 0 0 0 0
+80 1000 0 0 3 0 0 0
+81 2388 0 4 0 0 1 0
+82 1000 0 0 5 0 0 0
+83 2000 0 0 0 2 0 0
+84 2106 0 0 0 0 0 0
+85 330 2 0 0 0 0 0
+86 2000 0 0 0 2 0 0
+87 2176 0 0 0 0 0 0
+88 1000 0 0 3 0 0 0
+89 2388 0 4 0 0 1 0
+90 1000 0 0 5 0 0 0
+91 2000 0 0 0 2 0 0
+92 2106 0 0 0 0 0 0
+93 330 2 0 0 0 0 0
+94 2000 0 0 0 2 0 0
+95 2176 0 0 0 0 0 0
+96 1000 0 0 3 0 0 0
+97 2388 0 4 0 0 1 0
+98 1000 0 0 5 0 0 0
+99 2000 0 0 0 2 0 0
+100 2106 0 0 0 0 0 0
+101 330 2 0 0 0 0 0
+102 2000 0 0 0 2 0 0
+103 2176 0 0 0 0 0 0
+104 1000 0 0 3 0 0 0
+105 2388 0 4 0 0 1 0
+106 1000 0 0 5 0 0 0
+107 2000 0 0 0 2 0 0
+108 2106 0 0 0 0 0 0
+109 330 2 0 0 0 0 0
+110 2000 0 0 0 2 0 0
+111 2176 0 0 0 0 0 0
+112 1000 0 0 3 0 0 0
+113 2388 0 4 0 0 1 0
+114 1000 0 0 5 0 0 0
+115 2000 0 0 0 2 0 0
+116 313686 0 0 0 0 0 0
+
+# Format of RF events:
+# id amplitude mag_id phase_id time_shape_id delay freq phase
+# ..        Hz   ....     ....          ....    us   Hz   rad
+[RF]
+1 1250 1 2 3 100 0 0
+2 2500 1 2 3 100 0 1.5708
+
+# Format of trapezoid gradients:
+# id amplitude rise flat fall delay
+# ..      Hz/m   us   us   us    us
+[TRAP]
+1 149935 235 530 235 0
+2 226629 235 1530 235 0
+3 -143791 235 530 235 0
+4 100000 94 2200 94 0
+5 143791 235 530 235 0
+
+# Format of ADC events:
+# id num dwell delay freq phase
+# ..  ..    ns    us   Hz   rad
+[ADC]
+1 88 25000 94 0 0
+
+# Sequence Shapes
+[SHAPES]
+
+shape_id 1
+num_samples 2
+1
+1
+
+shape_id 2
+num_samples 2
+0
+0
+
+shape_id 3
+num_samples 2
+0
+200
+
+
+[SIGNATURE]
+# This is the hash of the Pulseq file, calculated right before the [SIGNATURE] section was added
+# It can be reproduced/verified with md5sum if the file trimmed to the position right above [SIGNATURE]
+# The new line character preceding [SIGNATURE] BELONGS to the signature (and needs to be stripped away for recalculating/verification)
+Type md5
+Hash ea0c394770e6a248790fdcae330b16fc

@@ -1,0 +1,4 @@
+# Host PC requirements (Python >= 3.8). marga_pulseq and marcos_client are vendored in vendor/.
+numpy>=1.20
+matplotlib>=3.3
+msgpack>=1.0

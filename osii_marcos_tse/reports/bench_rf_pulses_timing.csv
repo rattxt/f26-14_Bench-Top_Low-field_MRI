@@ -1,0 +1,17 @@
+time_us,channel,level,detail
+1010.000,tx_gate,HIGH,
+1110.000,tx0 (RF),0.1000 FS,"1250.0 Hz B1, phase 0.0 deg"
+1310.000,tx0 (RF),OFF,
+1310.000,tx_gate,LOW,
+11010.000,tx_gate,HIGH,
+11110.000,tx0 (RF),0.1000 FS,"1250.0 Hz B1, phase 0.0 deg"
+11310.000,tx0 (RF),OFF,
+11310.000,tx_gate,LOW,
+21010.000,tx_gate,HIGH,
+21110.000,tx0 (RF),0.1000 FS,"1250.0 Hz B1, phase 0.0 deg"
+21310.000,tx0 (RF),OFF,
+21310.000,tx_gate,LOW,
+31010.000,tx_gate,HIGH,
+31110.000,tx0 (RF),0.1000 FS,"1250.0 Hz B1, phase 0.0 deg"
+31310.000,tx0 (RF),OFF,
+31310.000,tx_gate,LOW,

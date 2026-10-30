@@ -1,0 +1,3 @@
+time_us,channel,level,detail
+0.000,Gy (vy),0.0000 FS,"0.000 V, 0.000 A, held 1000 us"
+1240.000,Gy (vy),-0.1200 FS,"-1.200 V, -1.800 A, held 5000010 us"
