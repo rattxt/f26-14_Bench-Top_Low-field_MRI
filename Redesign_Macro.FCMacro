@@ -1,0 +1,1141 @@
+import FreeCAD as App
+import Part
+import math
+import re
+
+
+doc = App.ActiveDocument
+
+if doc is None:
+    raise RuntimeError("Open your ring design first.")
+
+
+# ============================================================
+# SETTINGS
+# ============================================================
+
+# Final magnet-to-straight-wall clearance
+WALL_OFFSET = 0.70
+
+# Keep circles where the old 0.35-mm design placed them
+CIRCLE_POSITION_SHIFT = 0.35
+
+# Same corner-circle radius increase as old working design
+CORNER_RADIUS_INCREASE = 0.10
+
+TOL = 0.0001
+
+
+# ============================================================
+# NAME HELPERS
+# ============================================================
+
+def rectangle_index(name):
+
+    if name == "Rectangle":
+        return 0
+
+    m = re.fullmatch(r"Rectangle(\d+)", name)
+
+    if m:
+        return int(m.group(1))
+
+    return None
+
+
+def circle_name(index):
+
+    if index == 0:
+        return "Circle"
+
+    return "Circle{:03d}".format(index)
+
+
+def output_name(index):
+
+    if index == 0:
+        return "PocketTrim"
+
+    return "PocketTrim{:03d}".format(index)
+
+
+# ============================================================
+# GEOMETRY HELPERS
+# ============================================================
+
+def same_point(a, b, tol=TOL):
+    return (a - b).Length <= tol
+
+
+def unique_points(points):
+
+    result = []
+
+    for p in points:
+
+        if not any(
+            same_point(p, q)
+            for q in result
+        ):
+            result.append(p)
+
+    return result
+
+
+def edge_intersections(edge1, edge2):
+
+    result = []
+
+    section = edge1.section(edge2)
+
+    for vertex in section.Vertexes:
+        result.append(vertex.Point)
+
+    return unique_points(result)
+
+
+def line_parameter(point, origin, direction):
+
+    denom = direction.dot(direction)
+
+    if denom == 0:
+        return 0.0
+
+    return (
+        (point - origin).dot(direction)
+        / denom
+    )
+
+
+def make_outward_arc(
+    center,
+    radius,
+    point1,
+    point2,
+    pocketCenter
+):
+
+    a1 = math.atan2(
+        point1.y - center.y,
+        point1.x - center.x
+    )
+
+    a2 = math.atan2(
+        point2.y - center.y,
+        point2.x - center.x
+    )
+
+    if a1 < 0:
+        a1 += 2.0 * math.pi
+
+    if a2 < 0:
+        a2 += 2.0 * math.pi
+
+
+    # Arc candidate 1
+    a2f = a2
+
+    while a2f <= a1:
+        a2f += 2.0 * math.pi
+
+    amid1 = (a1 + a2f) / 2.0
+
+    mid1 = App.Vector(
+        center.x + radius * math.cos(amid1),
+        center.y + radius * math.sin(amid1),
+        center.z
+    )
+
+
+    # Arc candidate 2
+    a1f = a1
+
+    while a1f <= a2:
+        a1f += 2.0 * math.pi
+
+    amid2 = (a2 + a1f) / 2.0
+
+    mid2 = App.Vector(
+        center.x + radius * math.cos(amid2),
+        center.y + radius * math.sin(amid2),
+        center.z
+    )
+
+
+    # Keep the arc that bows outward from the pocket
+    if (
+        (mid1 - pocketCenter).Length
+        >=
+        (mid2 - pocketCenter).Length
+    ):
+
+        return Part.Arc(
+            point1,
+            mid1,
+            point2
+        ).toShape()
+
+    else:
+
+        return Part.Arc(
+            point2,
+            mid2,
+            point1
+        ).toShape()
+
+
+# ============================================================
+# COLLECT RECTANGLES
+# ============================================================
+
+rectangles = []
+
+for obj in doc.Objects:
+
+    idx = rectangle_index(obj.Name)
+
+    if idx is not None:
+        rectangles.append(
+            (
+                idx,
+                obj.Name
+            )
+        )
+
+
+rectangles.sort(
+    key=lambda item: item[0]
+)
+
+
+if not rectangles:
+    raise RuntimeError(
+        "No Rectangle objects found."
+    )
+
+
+print("")
+print("==============================================")
+print("FOUND {} POCKETS".format(len(rectangles)))
+print("==============================================")
+print("Straight wall offset = 0.70 mm")
+print("Circle movement = 0.35 mm")
+print("")
+
+
+# ============================================================
+# BEGIN
+# ============================================================
+
+doc.openTransaction(
+    "Create 0.7 mm magnet pocket walls"
+)
+
+
+try:
+
+    processed = 0
+
+
+    for pocketIndex, rectName in rectangles:
+
+
+        print("")
+        print("----------------------------------------------")
+        print("Processing {}".format(rectName))
+        print("----------------------------------------------")
+
+
+        rect = doc.getObject(rectName)
+
+        if rect is None:
+            raise RuntimeError(
+                "Missing {}".format(rectName)
+            )
+
+
+        # ====================================================
+        # CIRCLES
+        # ====================================================
+
+        firstCircleIndex = pocketIndex * 5
+
+
+        cornerNames = [
+            circle_name(firstCircleIndex),
+            circle_name(firstCircleIndex + 1),
+            circle_name(firstCircleIndex + 2),
+            circle_name(firstCircleIndex + 3)
+        ]
+
+
+        markerName = circle_name(
+            firstCircleIndex + 4
+        )
+
+
+        allCircleNames = (
+            cornerNames
+            + [markerName]
+        )
+
+
+        circles = {}
+
+
+        for name in allCircleNames:
+
+            obj = doc.getObject(name)
+
+            if obj is None:
+
+                raise RuntimeError(
+                    "Missing {} for {}".format(
+                        name,
+                        rectName
+                    )
+                )
+
+            circles[name] = obj
+
+
+        # ====================================================
+        # ORIGINAL RECTANGLE DATA
+        # ====================================================
+
+        oldLength = rect.Length.Value
+        oldHeight = rect.Height.Value
+
+        rotation = rect.Placement.Rotation
+
+
+        pocketCenter = (
+            rect.Placement.multVec(
+                App.Vector(
+                    oldLength / 2.0,
+                    oldHeight / 2.0,
+                    0
+                )
+            )
+        )
+
+
+        # Store original rectangle edges BEFORE changing anything
+        originalEdges = [
+            edge.copy()
+            for edge in rect.Shape.Edges
+        ]
+
+
+        # ====================================================
+        # CIRCLE LOCAL POSITIONS
+        # ====================================================
+
+        localPositions = {}
+
+
+        for name, circle in circles.items():
+
+            relative = (
+                circle.Placement.Base
+                - pocketCenter
+            )
+
+
+            localPositions[name] = (
+                rotation.inverted().multVec(
+                    relative
+                )
+            )
+
+
+        # ====================================================
+        # MOVE CORNER CIRCLES TO SAME LOCATIONS AS OLD DESIGN
+        # ====================================================
+
+        for name in cornerNames:
+
+            circle = circles[name]
+
+            local = localPositions[name]
+
+
+            dx = (
+                CIRCLE_POSITION_SHIFT
+                if local.x >= 0
+                else -CIRCLE_POSITION_SHIFT
+            )
+
+            dy = (
+                CIRCLE_POSITION_SHIFT
+                if local.y >= 0
+                else -CIRCLE_POSITION_SHIFT
+            )
+
+
+            move = rotation.multVec(
+                App.Vector(
+                    dx,
+                    dy,
+                    0
+                )
+            )
+
+
+            placement = circle.Placement
+
+            placement.Base = (
+                placement.Base
+                + move
+            )
+
+            circle.Placement = placement
+
+
+            circle.Radius = (
+                circle.Radius.Value
+                + CORNER_RADIUS_INCREASE
+            )
+
+
+        # ====================================================
+        # MOVE NORTH MARKER TO OLD DESIGN LOCATION
+        # ====================================================
+
+        marker = circles[markerName]
+
+        local = localPositions[markerName]
+
+
+        xRatio = (
+            abs(local.x)
+            / (oldLength / 2.0)
+        )
+
+        yRatio = (
+            abs(local.y)
+            / (oldHeight / 2.0)
+        )
+
+
+        if xRatio >= yRatio:
+
+            dx = (
+                CIRCLE_POSITION_SHIFT
+                if local.x >= 0
+                else -CIRCLE_POSITION_SHIFT
+            )
+
+            dy = 0
+
+        else:
+
+            dx = 0
+
+            dy = (
+                CIRCLE_POSITION_SHIFT
+                if local.y >= 0
+                else -CIRCLE_POSITION_SHIFT
+            )
+
+
+        move = rotation.multVec(
+            App.Vector(
+                dx,
+                dy,
+                0
+            )
+        )
+
+
+        placement = marker.Placement
+
+        placement.Base = (
+            placement.Base
+            + move
+        )
+
+        marker.Placement = placement
+
+
+        doc.recompute()
+
+
+        # ====================================================
+        # FIND WHICH CORNER CIRCLE BELONGS TO EACH ORIGINAL
+        # RECTANGLE VERTEX
+        # ====================================================
+
+        cornerCenters = {}
+
+        for name in cornerNames:
+            cornerCenters[name] = (
+                circles[name].Shape.Edges[0].Curve.Center
+            )
+
+
+        # Exact wall/arc connection points
+        cornerConnectionPoints = {
+            name: []
+            for name in cornerNames
+        }
+
+
+        markerConnectionPoints = []
+
+        finalEdges = []
+
+
+        # ====================================================
+        # PROCESS EACH ORIGINAL RECTANGLE EDGE
+        # ====================================================
+
+        for originalEdge in originalEdges:
+
+
+            originalStart = (
+                originalEdge.Vertexes[0].Point
+            )
+
+            originalEnd = (
+                originalEdge.Vertexes[-1].Point
+            )
+
+
+            originalMid = (
+                originalStart
+                + originalEnd
+            ) * 0.5
+
+
+            direction = (
+                originalEnd
+                - originalStart
+            )
+
+
+            length = direction.Length
+
+            if length <= TOL:
+                continue
+
+
+            unitDirection = (
+                direction / length
+            )
+
+
+            # =================================================
+            # FIND OUTWARD NORMAL
+            # =================================================
+
+            normalA = App.Vector(
+                -unitDirection.y,
+                unitDirection.x,
+                0
+            )
+
+
+            normalB = (
+                normalA * -1.0
+            )
+
+
+            testA = (
+                originalMid
+                + normalA
+            )
+
+            testB = (
+                originalMid
+                + normalB
+            )
+
+
+            if (
+                (testA - pocketCenter).Length
+                >
+                (testB - pocketCenter).Length
+            ):
+
+                outwardNormal = normalA
+
+            else:
+
+                outwardNormal = normalB
+
+
+            # =================================================
+            # OFFSET THIS WALL BY EXACTLY 0.70 MM
+            # =================================================
+
+            wallStartBase = (
+                originalStart
+                + outwardNormal * WALL_OFFSET
+            )
+
+
+            wallEndBase = (
+                originalEnd
+                + outwardNormal * WALL_OFFSET
+            )
+
+
+            # Extend line beyond both ends so intersection
+            # calculations are not limited by the old rectangle.
+            extension = 10.0
+
+
+            extendedStart = (
+                wallStartBase
+                - unitDirection * extension
+            )
+
+
+            extendedEnd = (
+                wallEndBase
+                + unitDirection * extension
+            )
+
+
+            offsetEdge = Part.makeLine(
+                extendedStart,
+                extendedEnd
+            )
+
+
+            # =================================================
+            # IDENTIFY THE CORNER CIRCLE AT EACH END
+            # =================================================
+
+            startCircleName = min(
+
+                cornerNames,
+
+                key=lambda name: (
+                    cornerCenters[name]
+                    - originalStart
+                ).Length
+            )
+
+
+            endCircleName = min(
+
+                cornerNames,
+
+                key=lambda name: (
+                    cornerCenters[name]
+                    - originalEnd
+                ).Length
+            )
+
+
+            if startCircleName == endCircleName:
+
+                raise RuntimeError(
+                    "{} matched the same corner circle "
+                    "to both ends of a wall."
+                    .format(
+                        rectName
+                    )
+                )
+
+
+            # =================================================
+            # INTERSECT OFFSET WALL WITH START CORNER CIRCLE
+            # =================================================
+
+            startIntersections = (
+                edge_intersections(
+                    offsetEdge,
+                    circles[
+                        startCircleName
+                    ].Shape.Edges[0]
+                )
+            )
+
+
+            if len(startIntersections) < 1:
+
+                raise RuntimeError(
+                    "{} offset wall does not intersect {}."
+                    .format(
+                        rectName,
+                        startCircleName
+                    )
+                )
+
+
+            # Choose intersection toward the MIDDLE of the wall.
+            startPoint = max(
+
+                startIntersections,
+
+                key=lambda p: line_parameter(
+                    p,
+                    wallStartBase,
+                    unitDirection
+                )
+            )
+
+
+            # =================================================
+            # INTERSECT OFFSET WALL WITH END CORNER CIRCLE
+            # =================================================
+
+            endIntersections = (
+                edge_intersections(
+                    offsetEdge,
+                    circles[
+                        endCircleName
+                    ].Shape.Edges[0]
+                )
+            )
+
+
+            if len(endIntersections) < 1:
+
+                raise RuntimeError(
+                    "{} offset wall does not intersect {}."
+                    .format(
+                        rectName,
+                        endCircleName
+                    )
+                )
+
+
+            # Choose intersection toward the MIDDLE of the wall.
+            endPoint = min(
+
+                endIntersections,
+
+                key=lambda p: line_parameter(
+                    p,
+                    wallStartBase,
+                    unitDirection
+                )
+            )
+
+
+            # =================================================
+            # SAVE EXACT POINTS FOR CORNER ARCS
+            # =================================================
+
+            cornerConnectionPoints[
+                startCircleName
+            ].append(
+                startPoint
+            )
+
+
+            cornerConnectionPoints[
+                endCircleName
+            ].append(
+                endPoint
+            )
+
+
+            # =================================================
+            # BUILD WALL BETWEEN CIRCLES ONLY
+            # =================================================
+
+            splitPoints = [
+                startPoint,
+                endPoint
+            ]
+
+
+            # =================================================
+            # NORTH MARKER INTERSECTIONS
+            # =================================================
+
+            markerIntersections = (
+                edge_intersections(
+                    offsetEdge,
+                    marker.Shape.Edges[0]
+                )
+            )
+
+
+            startT = line_parameter(
+                startPoint,
+                wallStartBase,
+                unitDirection
+            )
+
+
+            endT = line_parameter(
+                endPoint,
+                wallStartBase,
+                unitDirection
+            )
+
+
+            minT = min(
+                startT,
+                endT
+            )
+
+            maxT = max(
+                startT,
+                endT
+            )
+
+
+            for point in markerIntersections:
+
+                t = line_parameter(
+                    point,
+                    wallStartBase,
+                    unitDirection
+                )
+
+
+                if (
+                    t >= minT - TOL
+                    and
+                    t <= maxT + TOL
+                ):
+
+                    splitPoints.append(
+                        point
+                    )
+
+                    markerConnectionPoints.append(
+                        point
+                    )
+
+
+            splitPoints = unique_points(
+                splitPoints
+            )
+
+
+            splitPoints.sort(
+
+                key=lambda p: line_parameter(
+                    p,
+                    wallStartBase,
+                    unitDirection
+                )
+            )
+
+
+            # =================================================
+            # BUILD STRAIGHT WALL PIECES
+            # =================================================
+
+            for i in range(
+                len(splitPoints) - 1
+            ):
+
+
+                p1 = splitPoints[i]
+
+                p2 = splitPoints[
+                    i + 1
+                ]
+
+
+                if (
+                    (p2 - p1).Length
+                    <= TOL
+                ):
+                    continue
+
+
+                # If marker intersects, remove the section
+                # that lies inside the marker circle.
+                midpoint = (
+                    p1 + p2
+                ) * 0.5
+
+
+                markerCenter = (
+                    marker.Shape.Edges[0].Curve.Center
+                )
+
+                markerRadius = (
+                    marker.Shape.Edges[0].Curve.Radius
+                )
+
+
+                if (
+                    (midpoint - markerCenter).Length
+                    <
+                    markerRadius - TOL
+                ):
+
+                    continue
+
+
+                finalEdges.append(
+
+                    Part.makeLine(
+                        p1,
+                        p2
+                    )
+                )
+
+
+        # ====================================================
+        # CREATE FOUR CORNER ARCS
+        # ====================================================
+
+        for name in cornerNames:
+
+
+            points = unique_points(
+                cornerConnectionPoints[name]
+            )
+
+
+            if len(points) != 2:
+
+                raise RuntimeError(
+                    "{} on {} has {} connection points "
+                    "instead of 2."
+                    .format(
+                        name,
+                        rectName,
+                        len(points)
+                    )
+                )
+
+
+            curve = (
+                circles[
+                    name
+                ].Shape.Edges[0].Curve
+            )
+
+
+            arc = make_outward_arc(
+
+                curve.Center,
+
+                curve.Radius,
+
+                points[0],
+
+                points[1],
+
+                pocketCenter
+            )
+
+
+            finalEdges.append(
+                arc
+            )
+
+
+        # ====================================================
+        # NORTH MARKER ARC
+        # ====================================================
+
+        markerConnectionPoints = unique_points(
+            markerConnectionPoints
+        )
+
+
+        if len(markerConnectionPoints) != 2:
+
+            raise RuntimeError(
+                "{} marker has {} wall intersections "
+                "instead of 2."
+                .format(
+                    rectName,
+                    len(markerConnectionPoints)
+                )
+            )
+
+
+        markerCurve = (
+            marker.Shape.Edges[0].Curve
+        )
+
+
+        markerArc = make_outward_arc(
+
+            markerCurve.Center,
+
+            markerCurve.Radius,
+
+            markerConnectionPoints[0],
+
+            markerConnectionPoints[1],
+
+            pocketCenter
+        )
+
+
+        finalEdges.append(
+            markerArc
+        )
+
+
+        # ====================================================
+        # CONNECT
+        # ====================================================
+
+        sortedGroups = Part.sortEdges(
+            finalEdges
+        )
+
+
+        print(
+            "{} connected groups = {}".format(
+                rectName,
+                len(sortedGroups)
+            )
+        )
+
+
+        if len(sortedGroups) != 1:
+
+            raise RuntimeError(
+                "{} produced {} disconnected groups."
+                .format(
+                    rectName,
+                    len(sortedGroups)
+                )
+            )
+
+
+        finishedWire = Part.Wire(
+            sortedGroups[0]
+        )
+
+
+        if not finishedWire.isClosed():
+
+            raise RuntimeError(
+                "{} produced an open wire."
+                .format(
+                    rectName
+                )
+            )
+
+
+        if not finishedWire.isValid():
+
+            raise RuntimeError(
+                "{} produced an invalid wire."
+                .format(
+                    rectName
+                )
+            )
+
+
+        # ====================================================
+        # OUTPUT
+        # ====================================================
+
+        outName = output_name(
+            pocketIndex
+        )
+
+
+        oldOutput = doc.getObject(
+            outName
+        )
+
+
+        if oldOutput is not None:
+            doc.removeObject(
+                outName
+            )
+
+
+        output = doc.addObject(
+            "Part::Feature",
+            outName
+        )
+
+
+        output.Label = (
+            "Pocket Trim {:03d}".format(
+                pocketIndex
+            )
+        )
+
+
+        output.Shape = (
+            finishedWire
+        )
+
+
+        doc.recompute()
+
+
+        # ====================================================
+        # DELETE ORIGINALS
+        # ====================================================
+
+        for sourceName in (
+            [rectName]
+            + allCircleNames
+        ):
+
+
+            if doc.getObject(
+                sourceName
+            ) is not None:
+
+                doc.removeObject(
+                    sourceName
+                )
+
+
+        doc.recompute()
+
+        processed += 1
+
+
+        print(
+            "Pocket {} complete."
+            .format(
+                pocketIndex
+            )
+        )
+
+
+    # ========================================================
+    # FINISH
+    # ========================================================
+
+    doc.recompute()
+
+    doc.commitTransaction()
+
+
+    print("")
+    print("==============================================")
+    print("SUCCESS")
+    print("==============================================")
+    print(
+        "{} pockets processed.".format(
+            processed
+        )
+    )
+    print("Straight walls offset 0.70 mm")
+    print("Corner circles unchanged from old design")
+    print("Walls trimmed directly to circles")
+    print("No theoretical larger-square corners")
+    print("==============================================")
+    print("")
+
+
+except Exception as error:
+
+    doc.abortTransaction()
+
+    print("")
+    print("==============================================")
+    print("MACRO STOPPED")
+    print("==============================================")
+    print(error)
+    print("==============================================")
+    print("")
+
+    raise
